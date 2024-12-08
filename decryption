@@ -1,1 +1,114 @@
+#include <iostream>
+#include <iomanip>
+#include <cstdint>
+#include <algorithm> // For std::rotate
+
+// AES inverse S-box
+const uint8_t inv_sbox[256] = {
+    // Full inverse S-box here (same as above) ...
+};
+
+// Helper function for GF(2^8) multiplication
+uint8_t gmul(uint8_t a, uint8_t b) {
+    uint8_t p = 0;
+    while (b) {
+        if (b & 1) {
+            p ^= a;
+        }
+        if (a & 0x80) {
+            a = (a << 1) ^ 0x1B;
+        } else {
+            a <<= 1;
+        }
+        b >>= 1;
+    }
+    return p;
+}
+
+// AddRoundKey function
+void addRoundKey(uint8_t state[4][4], const uint8_t roundKey[4][4]) {
+    for (int i = 0; i < 4; ++i) {
+        for (int j = 0; j < 4; ++j) {
+            state[i][j] ^= roundKey[i][j];
+        }
+    }
+}
+
+// Inverse SubstituteBytes function
+void invSubstituteBytes(uint8_t state[4][4]) {
+    for (int i = 0; i < 4; ++i) {
+        for (int j = 0; j < 4; ++j) {
+            state[i][j] = inv_sbox[state[i][j]];
+        }
+    }
+}
+
+// Inverse ShiftRows function
+void invShiftRows(uint8_t state[4][4]) {
+    for (int i = 1; i < 4; ++i) {
+        std::rotate(&state[i][0], &state[i][4] - i, &state[i][4]);
+    }
+}
+
+// Inverse MixColumns function
+void invMixColumns(uint8_t state[4][4]) {
+    uint8_t temp[4];
+    for (int col = 0; col < 4; ++col) {
+        temp[0] = gmul(0x0E, state[0][col]) ^ gmul(0x0B, state[1][col]) ^
+                  gmul(0x0D, state[2][col]) ^ gmul(0x09, state[3][col]);
+        temp[1] = gmul(0x09, state[0][col]) ^ gmul(0x0E, state[1][col]) ^
+                  gmul(0x0B, state[2][col]) ^ gmul(0x0D, state[3][col]);
+        temp[2] = gmul(0x0D, state[0][col]) ^ gmul(0x09, state[1][col]) ^
+                  gmul(0x0E, state[2][col]) ^ gmul(0x0B, state[3][col]);
+        temp[3] = gmul(0x0B, state[0][col]) ^ gmul(0x0D, state[1][col]) ^
+                  gmul(0x09, state[2][col]) ^ gmul(0x0E, state[3][col]);
+
+        for (int row = 0; row < 4; ++row) {
+            state[row][col] = temp[row];
+        }
+    }
+}
+
+// Display function
+void displayState(const uint8_t state[4][4]) {
+    for (int i = 0; i < 4; ++i) {
+        for (int j = 0; j < 4; ++j) {
+            std::cout << std::hex << std::setw(2) << std::setfill('0') 
+                      << (int)state[i][j] << " ";
+        }
+        std::cout << std::endl;
+    }
+}
+
+int main() {
+    // Updated encrypted state matrix
+    uint8_t state[4][4] = {
+        {0xEA, 0xEE, 0x94, 0xC0},
+        {0xE8, 0x69, 0x84, 0x2C},
+        {0x2C, 0x1D, 0x2B, 0xF2},
+        {0xBB, 0x6C, 0xB8, 0x6E}
+    };
+
+    // Example round key
+    uint8_t roundKey[4][4] = {
+        {0x2B, 0x7E, 0x15, 0x16},
+        {0x28, 0xAE, 0xD2, 0xA6},
+        {0xAB, 0xF7, 0xCF, 0x93},
+        {0x40, 0xB2, 0x34, 0x5C}
+    };
+
+    std::cout << "Encrypted State:" << std::endl;
+    displayState(state);
+
+    // Perform AES decryption steps
+    invShiftRows(state);        // Step 1: Inverse ShiftRows
+    invSubstituteBytes(state);  // Step 2: Inverse SubstituteBytes
+    addRoundKey(state, roundKey); // Step 3: AddRoundKey
+    invMixColumns(state);       // Step 4: Inverse MixColumns (not done in the last round)
+
+    std::cout << "\nDecrypted State:" << std::endl;
+    displayState(state);
+
+    return 0;
+}
 
